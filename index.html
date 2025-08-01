@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Kakao Map with Polygon List</title>
+    <title>Kakao Map with Grouped Polygon List</title>
     <style>
         /* 기본 레이아웃 */
         html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; }
@@ -15,7 +15,7 @@
             flex-shrink: 0;
             background-color: #f8f9fa;
             border-right: 1px solid #dee2e6;
-            overflow-y: auto; /* 목록이 길어지면 스크롤 생성 */
+            overflow-y: auto;
         }
         #sidebar h2 {
             margin: 0;
@@ -23,26 +23,36 @@
             font-size: 18px;
             background-color: #e9ecef;
             border-bottom: 1px solid #dee2e6;
+            position: sticky; /* 스크롤 시 상단에 고정 */
+            top: 0;
         }
-        #polygon-list {
+        .layer-group h3 {
+            padding: 10px 15px;
+            margin: 0;
+            font-size: 14px;
+            background-color: #f1f3f5;
+            border-bottom: 1px solid #dee2e6;
+        }
+        #polygon-list, .layer-list {
             list-style-type: none;
             margin: 0;
             padding: 0;
         }
-        #polygon-list li {
+        .layer-list li {
             padding: 12px 15px;
             cursor: pointer;
             border-bottom: 1px solid #e9ecef;
             transition: background-color 0.2s;
+            font-size: 14px;
         }
-        #polygon-list li:hover, #polygon-list li.active {
+        .layer-list li:hover, .layer-list li.active {
             background-color: #d0e3ff;
         }
 
         /* 카카오맵 팝업창 스타일 */
         .area { position: absolute; background: #fff; border: 1px solid #888; border-radius: 3px; font-size: 12px; top: -5px; left: 15px; padding:2px; }
-        .info { font-size: 12px; padding: 5px; }
-        .info .title { font-weight: bold; }
+        .info .title { font-size: 15px; font-weight: bold; }
+        .info .link { font-size: 14px; }
         .info a { color: #1a73e8; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
     </style>
@@ -51,40 +61,56 @@
     <div id="container">
         <div id="sidebar">
             <h2>상권 목록</h2>
-            <ul id="polygon-list">
-                <!-- KML 데이터가 이곳에 동적으로 추가됩니다. -->
-            </ul>
+            <div id="polygon-list-container">
+                <!-- KML 데이터가 그룹별로 이곳에 동적으로 추가됩니다. -->
+            </div>
         </div>
         <div id="map"></div>
     </div>
 
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5bc8237fbd068b286a064706ed55a6dd&libraries=drawing&autoload=false"></script>
     <script>
-        var areas = []; // KML에서 파싱한 데이터를 저장할 배열
+        // KML에서 파싱한 데이터를 레이어별로 그룹화하여 저장할 객체
+        var groupedAreas = {}; 
         
         kakao.maps.load(async function() {
             var mapContainer = document.getElementById('map'); 
             var options = { 
-                center: new kakao.maps.LatLng(37.566826, 126.9786567),
-                level: 9
+                center: new kakao.maps.LatLng(37.523663, 127.000393), // 중심 좌표 수정
+                level: 7 // 확대 레벨 수정
             };
 
             var map = new kakao.maps.Map(mapContainer, options);
             var customOverlay = new kakao.maps.CustomOverlay({});
             var infowindow = new kakao.maps.InfoWindow({ removable: true });
 
-            // KML 데이터를 불러와 areas 배열을 채웁니다.
             await loadKmlData();
 
-            var listContainer = document.getElementById('polygon-list');
+            var listContainer = document.getElementById('polygon-list-container');
             
-            // areas 배열을 순회하며 폴리곤과 목록 아이템을 생성합니다.
-            for (var i = 0; i < areas.length; i++) {
-                displayArea(areas[i], map, customOverlay, infowindow, listContainer);
+            // 그룹화된 데이터를 순회하며 폴리곤과 목록을 생성합니다.
+            for (const layerName in groupedAreas) {
+                // 레이어 그룹 컨테이너 생성
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'layer-group';
+                
+                const groupTitle = document.createElement('h3');
+                groupTitle.textContent = layerName;
+                groupDiv.appendChild(groupTitle);
+
+                const groupList = document.createElement('ul');
+                groupList.className = 'layer-list';
+                groupDiv.appendChild(groupList);
+                
+                listContainer.appendChild(groupDiv);
+
+                // 해당 레이어의 폴리곤들을 순회합니다.
+                groupedAreas[layerName].forEach(area => {
+                    displayArea(area, map, customOverlay, infowindow, groupList);
+                });
             }
         });
 
-        // KML 데이터를 불러와 파싱하는 함수
         async function loadKmlData() {
             const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
             try {
@@ -101,22 +127,32 @@
                 if (!finalResponse.ok) throw new Error('최종 KML 로딩 실패');
                 const finalKmlText = await finalResponse.text();
                 const finalKmlDoc = parser.parseFromString(finalKmlText, "application/xml");
-                const placemarks = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Placemark');
-                for (let i = 0; i < placemarks.length; i++) {
-                    const placemark = placemarks[i];
-                    const name = placemark.getElementsByTagNameNS(kmlNs, 'name')[0]?.textContent || '';
-                    const description = placemark.getElementsByTagNameNS(kmlNs, 'description')[0]?.textContent || '';
-                    const coordinatesElem = placemark.getElementsByTagNameNS(kmlNs, 'coordinates')[0];
-                    if (!coordinatesElem) continue;
-                    const coordinatesStr = coordinatesElem.textContent.trim();
-                    const path = coordinatesStr.split(/\s+/).map(coordStr => {
-                        const [lng, lat] = coordStr.split(',');
-                        if (!isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-                            return new kakao.maps.LatLng(lat, lng);
+                
+                // KML의 Folder(레이어)를 기준으로 파싱
+                const folders = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Folder');
+                for (let i = 0; i < folders.length; i++) {
+                    const folder = folders[i];
+                    const layerName = folder.getElementsByTagNameNS(kmlNs, 'name')[0]?.textContent || '미분류';
+                    groupedAreas[layerName] = []; // 레이어별 배열 초기화
+
+                    const placemarks = folder.getElementsByTagNameNS(kmlNs, 'Placemark');
+                    for (let j = 0; j < placemarks.length; j++) {
+                        const placemark = placemarks[j];
+                        const name = placemark.getElementsByTagNameNS(kmlNs, 'name')[0]?.textContent || '';
+                        const description = placemark.getElementsByTagNameNS(kmlNs, 'description')[0]?.textContent || '';
+                        const coordinatesElem = placemark.getElementsByTagNameNS(kmlNs, 'coordinates')[0];
+                        if (!coordinatesElem) continue;
+                        const coordinatesStr = coordinatesElem.textContent.trim();
+                        const path = coordinatesStr.split(/\s+/).map(coordStr => {
+                            const [lng, lat] = coordStr.split(',');
+                            if (!isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                                return new kakao.maps.LatLng(lat, lng);
+                            }
+                        }).filter(p => p);
+
+                        if (path.length > 0) {
+                            groupedAreas[layerName].push({ name: name, path: path, description: description });
                         }
-                    }).filter(p => p);
-                    if (path.length > 0) {
-                        areas.push({ name: name, path: path, description: description });
                     }
                 }
             } catch (error) {
@@ -125,39 +161,40 @@
             }
         }
         
-        // 폴리곤과 목록 아이템을 생성하고 이벤트를 연결하는 함수
         function displayArea(area, map, customOverlay, infowindow, listContainer) {
             var polygon = new kakao.maps.Polygon({
                 map: map,
                 path: area.path,
-                strokeWeight: 2,
-                strokeColor: '#004c80',
+                strokeWeight: 3, // 선 굵기 수정
+                strokeColor: '#8f0d2b', // 선 색상 수정
                 strokeOpacity: 0.8,
                 fillColor: '#fff',
                 fillOpacity: 0.7
             });
 
-            // 사이드바에 목록 아이템(li) 생성
             const listItem = document.createElement('li');
             listItem.textContent = area.name;
             listContainer.appendChild(listItem);
 
-            // --- 상호작용 이벤트 연결 ---
-
-            // 1. 폴리곤 이벤트
-            kakao.maps.event.addListener(polygon, 'mouseover', function() {
+            // 폴리곤 이벤트
+            kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
                 polygon.setOptions({ fillColor: '#09f' });
-                listItem.classList.add('active'); // 목록 아이템 하이라이트
+                listItem.classList.add('active');
+                // 폴리곤 자체에 마우스오버 시에도 이름 팝업 표시
+                customOverlay.setContent('<div class="area">' + area.name + '</div>');
+                customOverlay.setPosition(mouseEvent.latLng); 
+                customOverlay.setMap(map);
             });
             kakao.maps.event.addListener(polygon, 'mouseout', function() {
                 polygon.setOptions({ fillColor: '#fff' });
-                listItem.classList.remove('active'); // 목록 아이템 하이라이트 제거
+                listItem.classList.remove('active');
+                customOverlay.setMap(null); // 폴리곤에서 마우스 뗄 때도 팝업 제거
             });
             kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
                 displayInfoWindow(area, mouseEvent.latLng, infowindow, map);
             });
 
-            // 2. 목록 아이템(li) 이벤트
+            // 목록 아이템(li) 이벤트
             listItem.addEventListener('mouseover', () => {
                 polygon.setOptions({ fillColor: '#09f' });
                 customOverlay.setContent('<div class="area">' + area.name + '</div>');
@@ -170,18 +207,17 @@
             });
             listItem.addEventListener('click', () => {
                 const center = getPolygonCenter(area.path);
-                map.panTo(center); // 지도를 폴리곤 중심으로 부드럽게 이동
+                map.panTo(center);
                 displayInfoWindow(area, center, infowindow, map);
             });
         }
         
-        // 정보창을 표시하는 함수
         function displayInfoWindow(area, position, infowindow, map) {
             const urlMatch = area.description.match(/https?:\/\/[^\s<]+/);
             let content = '<div class="info">' +
                           '   <div class="title">' + area.name + '</div>';
             if (urlMatch && urlMatch[0]) {
-                content += '   <div><a href="' + urlMatch[0] + '" target="_blank">임장기 보러가기</a></div>';
+                content += '   <div class="link"><a href="' + urlMatch[0] + '" target="_blank">임장기 보러가기</a></div>';
             }
             content += '</div>';
             infowindow.setContent(content);
@@ -189,7 +225,6 @@
             infowindow.setMap(map);
         }
 
-        // 폴리곤 중심 좌표 계산 함수
         function getPolygonCenter(path) {
             const bounds = new kakao.maps.LatLngBounds();
             path.forEach(point => bounds.extend(point));
