@@ -13,21 +13,30 @@
 
 	<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5bc8237fbd068b286a064706ed55a6dd&libraries=drawing&autoload=false"></script>
 	<script>
+        // --- 1. 전역 변수 선언 ---
+        // 지도에 표시할 영역데이터 배열입니다. KML 파싱 후 이곳에 채워집니다.
+        var areas = [];
+        let map; // 지도 객체
+        let infowindow; // 인포윈도우 객체
+
 		kakao.maps.load(function() {
 		    var mapContainer = document.getElementById('map'); 
 		    var options = { 
 			    center: new kakao.maps.LatLng(37.5665, 126.9780),
 			    level: 9
 		    };
-		    var map = new kakao.maps.Map(mapContainer, options); 
-            loadAndProcessKml(map);
+		    map = new kakao.maps.Map(mapContainer, options);
+            infowindow = new kakao.maps.InfoWindow({ removable: true }); 
+            
+            // KML 파일을 불러와 areas 배열을 채우는 함수를 호출합니다.
+            loadKmlData();
         });
 
-        // KML을 불러와 파싱하고, 각 도형 정보를 displayArea 함수로 넘기는 역할
-        async function loadAndProcessKml(map) {
+        // KML을 불러와 파싱하고, areas 배열을 채운 뒤, 폴리곤을 그리는 함수를 호출합니다.
+        async function loadKmlData() {
             const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
             try {
-                // 1단계 & 2단계: KML 로딩 및 최종 데이터 추출 (이전과 동일)
+                // KML 로딩 및 최종 데이터 추출 (이전과 동일)
                 const initialResponse = await fetch(initialKmlUrl);
                 if (!initialResponse.ok) throw new Error('초기 KML 로딩 실패');
                 const initialKmlText = await initialResponse.text();
@@ -42,57 +51,12 @@
                 const finalKmlText = await finalResponse.text();
                 const finalKmlDoc = parser.parseFromString(finalKmlText, "application/xml");
 
-                // 3단계: 스타일 파싱 (이전과 동일)
-                const styles = {};
-                const styleMaps = {};
-                // ... (스타일 파싱 로직은 이전과 동일하여 생략)
-                const styleMapElements = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'StyleMap');
-                for (let i = 0; i < styleMapElements.length; i++) {
-                    const styleMap = styleMapElements[i];
-                    const mapId = '#' + styleMap.getAttribute('id');
-                    const pairs = styleMap.getElementsByTagNameNS(kmlNs, 'Pair');
-                    for (let j = 0; j < pairs.length; j++) {
-                        const key = pairs[j].getElementsByTagNameNS(kmlNs, 'key')[0]?.textContent;
-                        const styleUrl = pairs[j].getElementsByTagNameNS(kmlNs, 'styleUrl')[0]?.textContent;
-                        if (key === 'normal') styleMaps[mapId] = styleUrl;
-                    }
-                }
-                const styleElements = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Style');
-                for (let i = 0; i < styleElements.length; i++) {
-                    const style = styleElements[i];
-                    const styleId = '#' + style.getAttribute('id');
-                    styles[styleId] = {};
-                    const lineStyle = style.getElementsByTagNameNS(kmlNs, 'LineStyle')[0];
-                    const polyStyle = style.getElementsByTagNameNS(kmlNs, 'PolyStyle')[0];
-                    if (lineStyle) {
-                        const color = lineStyle.getElementsByTagNameNS(kmlNs, 'color')[0]?.textContent;
-                        const width = lineStyle.getElementsByTagNameNS(kmlNs, 'width')[0]?.textContent;
-                        if (color) {
-                            const c = kmlColorToKakao(color);
-                            styles[styleId].strokeColor = c.color;
-                            styles[styleId].strokeOpacity = c.opacity;
-                        }
-                        if (width) styles[styleId].strokeWeight = parseFloat(width);
-                    }
-                    if (polyStyle) {
-                        const color = polyStyle.getElementsByTagNameNS(kmlNs, 'color')[0]?.textContent;
-                        if (color) {
-                            const c = kmlColorToKakao(color);
-                            styles[styleId].fillColor = c.color;
-                            styles[styleId].fillOpacity = c.opacity;
-                        }
-                    }
-                }
-
-                // 4단계: Placemark 순회하며 데이터 추출 후 displayArea 함수 호출
+                // KML에서 Placemark를 찾아 areas 배열에 추가합니다.
                 const placemarks = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Placemark');
-                const infowindow = new kakao.maps.InfoWindow({ removable: true });
-
                 for (let i = 0; i < placemarks.length; i++) {
                     const placemark = placemarks[i];
                     const name = placemark.getElementsByTagNameNS(kmlNs, 'name')[0]?.textContent || '';
                     const description = placemark.getElementsByTagNameNS(kmlNs, 'description')[0]?.textContent || '';
-                    const styleUrl = placemark.getElementsByTagNameNS(kmlNs, 'styleUrl')[0]?.textContent || '';
                     const coordinatesElem = placemark.getElementsByTagNameNS(kmlNs, 'coordinates')[0];
                     if (!coordinatesElem) continue;
 
@@ -103,72 +67,64 @@
                             return new kakao.maps.LatLng(lat, lng);
                         }
                     }).filter(p => p);
-                    if (path.length === 0) continue;
 
-                    const polygonOptions = { strokeWeight: 2, strokeColor: '#0000FF', strokeOpacity: 0.8, fillColor: '#0000FF', fillOpacity: 0.3 };
-                    const finalStyleUrl = styleMaps[styleUrl] || styleUrl;
-                    if (styles[finalStyleUrl]) {
-                        Object.assign(polygonOptions, styles[finalStyleUrl]);
+                    if (path.length > 0) {
+                        areas.push({
+                            name: name,
+                            path: path,
+                            description: description
+                        });
                     }
-
-                    // 추출한 모든 정보를 하나의 객체로 묶습니다.
-                    const area = {
-                        name: name,
-                        path: path,
-                        options: polygonOptions,
-                        description: description
-                    };
-                    
-                    // 완성된 area 정보를 displayArea 함수로 넘겨줍니다.
-                    displayArea(area, map, infowindow);
                 }
+
+                // areas 배열이 모두 채워진 후, 폴리곤을 그리는 함수를 호출합니다.
+                drawPolygons();
+
             } catch (error) {
                 console.error("KML 처리 중 오류 발생:", error);
                 alert("지도 데이터를 불러오는 데 실패했습니다.");
             }
         }
+        
+        // --- 2. areas 배열을 순회하며 displayArea 함수를 호출하는 부분 ---
+        function drawPolygons() {
+            for (var i = 0; i < areas.length; i++) {
+                displayArea(areas[i]);
+            }
+        }
 
-        // --- ▼▼▼ displayArea 함수 신설 ▼▼▼ ---
-        // 하나의 폴리곤을 지도에 그리고 이벤트를 등록하는 함수입니다.
-        function displayArea(area, map, infowindow) {
-            // 폴리곤 옵션에 경로(path)를 추가합니다.
-            const polygonOptions = { ...area.options, path: area.path };
+        // --- 3. 하나의 폴리곤을 그리고 이벤트를 등록하는 함수 (가이드와 동일한 구조) ---
+        function displayArea(area) {
+            // 다각형을 생성합니다. (모든 폴리곤에 동일한 스타일 적용)
+            var polygon = new kakao.maps.Polygon({
+                map: map,
+                path: area.path,
+                strokeWeight: 2,
+                strokeColor: '#004DE3',
+                strokeOpacity: 0.8,
+                fillColor: '#004DE3',
+                fillOpacity: 0.3
+            });
 
-            // 폴리곤을 생성합니다.
-            const polygon = new kakao.maps.Polygon(polygonOptions);
-
-            // 폴리곤을 지도에 표시합니다.
-            polygon.setMap(map);
-
-            // 마우스오버/아웃 이벤트를 등록합니다.
+            // 다각형에 mouseover 이벤트를 등록하고 이벤트가 발생하면 인포윈도우를 표시합니다 
             kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                const content = `<div class="info-window">${area.name}</div>`;
-                infowindow.setContent(content);
+                infowindow.setContent('<div class="info-window">' + area.name + '</div>');
                 infowindow.setPosition(mouseEvent.latLng);
                 infowindow.open(map);
             });
 
+            // 다각형에 mouseout 이벤트를 등록하고 이벤트가 발생하면 인포윈도우를 닫습니다
             kakao.maps.event.addListener(polygon, 'mouseout', function() {
                 infowindow.close();
             });
 
-            // 클릭 이벤트를 등록합니다.
+            // 다각형에 click 이벤트를 등록하고, URL이 있으면 해당 페이지로 이동합니다.
             const urlMatch = area.description.match(/https?:\/\/[^\s<]+/);
             if (urlMatch && urlMatch[0]) {
                 kakao.maps.event.addListener(polygon, 'click', function() {
                     window.location.href = urlMatch[0];
                 });
             }
-        }
-        // --- ▲▲▲ 함수 신설 끝 ▲▲▲ ---
-
-        function kmlColorToKakao(kmlColor) {
-            const aabbggrr = kmlColor.padStart(8, '0');
-            const alpha = parseInt(aabbggrr.substring(0, 2), 16) / 255.0;
-            const blue = aabbggrr.substring(2, 4);
-            const green = aabbggrr.substring(4, 6);
-            const red = aabbggrr.substring(6, 8);
-            return { color: `#${red}${green}${blue}`, opacity: alpha };
         }
 	</script>
 </body>
