@@ -207,16 +207,25 @@
             
             // --- ▼▼▼ 목록 아이템 클릭 이벤트 수정 ▼▼▼ ---
             listItem.addEventListener('click', () => {
-                const center = getPolygonCenter(area.path);
-                
-                // 지도의 확대 레벨을 3으로 먼저 설정합니다.
-                map.setLevel(3);
-                
-                // 그 다음, 지도의 중심을 폴리곤의 중심으로 즉시 이동시킵니다.
-                map.setCenter(center); 
-                
-                // 정보창을 표시합니다.
-                displayInfoWindow(area, center, infowindow, map);
+                // 1. 폴리곤의 경계를 포함하는 LatLngBounds 객체를 생성합니다.
+                const bounds = new kakao.maps.LatLngBounds();
+                area.path.forEach(point => {
+                    bounds.extend(point);
+                });
+
+                // 2. 지도에 생성한 경계를 설정합니다.
+                // 이렇게 하면 지도의 중심과 확대 레벨이 자동으로 조정됩니다.
+                map.setBounds(bounds);
+
+                // 3. 잠시 후, 확대 레벨을 3으로 강제 설정합니다.
+                // setBounds의 부드러운 이동 애니메이션이 끝날 시간을 벌어주기 위해
+                // 약간의 딜레이(0.3초)를 줍니다.
+                setTimeout(() => {
+                    map.setLevel(3);
+                }, 300);
+
+                // 4. 정보창을 폴리곤의 중심에 표시합니다.
+                displayInfoWindow(area, bounds.getCenter(), infowindow, map);
             });
             // --- ▲▲▲ 수정 끝 ▲▲▲ ---
         }
