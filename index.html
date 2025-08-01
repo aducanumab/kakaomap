@@ -180,7 +180,6 @@
             kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
                 polygon.setOptions({ fillColor: '#09f' });
                 listItem.classList.add('active');
-                // 폴리곤 자체에 마우스오버 시에도 이름 팝업 표시
                 customOverlay.setContent('<div class="area">' + area.name + '</div>');
                 customOverlay.setPosition(mouseEvent.latLng); 
                 customOverlay.setMap(map);
@@ -188,7 +187,7 @@
             kakao.maps.event.addListener(polygon, 'mouseout', function() {
                 polygon.setOptions({ fillColor: '#fff' });
                 listItem.classList.remove('active');
-                customOverlay.setMap(null); // 폴리곤에서 마우스 뗄 때도 팝업 제거
+                customOverlay.setMap(null);
             });
             kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
                 displayInfoWindow(area, mouseEvent.latLng, infowindow, map);
@@ -205,16 +204,21 @@
                 polygon.setOptions({ fillColor: '#fff' });
                 customOverlay.setMap(null);
             });
+            
+            // --- ▼▼▼ 목록 아이템 클릭 이벤트 수정 ▼▼▼ ---
             listItem.addEventListener('click', () => {
                 const center = getPolygonCenter(area.path);
-                map.panTo(center); // 지도를 폴리곤 중심으로 부드럽게 이동
                 
-                // --- ↓↓↓ 이 부분을 추가하세요 ↓↓↓ ---
-                map.setLevel(3);   // 지도의 확대 레벨을 3으로 설정
-                // --- ↑↑↑ 여기까지 추가 --- ↑↑↑
-            
+                // 지도의 확대 레벨을 3으로 먼저 설정합니다.
+                map.setLevel(3);
+                
+                // 그 다음, 지도의 중심을 폴리곤의 중심으로 즉시 이동시킵니다.
+                map.setCenter(center); 
+                
+                // 정보창을 표시합니다.
                 displayInfoWindow(area, center, infowindow, map);
             });
+            // --- ▲▲▲ 수정 끝 ▲▲▲ ---
         }
         
         function displayInfoWindow(area, position, infowindow, map) {
