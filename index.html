@@ -2,7 +2,6 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <!-- ▼▼▼ 모바일 기기에서 화면 크기를 올바르게 인식하도록 meta 태그 추가 ▼▼▼ -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kakao Map with Grouped Polygon List</title>
     <style>
@@ -51,8 +50,7 @@
             background-color: #d0e3ff;
         }
 
-        /* ▼▼▼ 카카오맵 팝업창 스타일 최적화 ▼▼▼ */
-        /* mouseover 시 나타나는 작은 이름표 */
+        /* 카카오맵 팝업창 스타일 */
         .area { 
             position: absolute; 
             background: #fff; 
@@ -63,13 +61,12 @@
             left: 15px; 
             padding: 4px 6px;
         }
-        /* click 시 나타나는 정보창 */
         .info { 
             font-size: 12px; 
             padding: 10px 12px;
             line-height: 1.5;
-            max-width: 220px; /* 팝업창 최대 너비 설정 */
-            word-wrap: break-word; /* 긴 텍스트 자동 줄바꿈 */
+            max-width: 220px;
+            word-wrap: break-word;
         }
         .info .title { 
             font-size: 15px; 
@@ -86,9 +83,8 @@
         .info a:hover { 
             text-decoration: underline; 
         }
-        /* --- ▲▲▲ 스타일 최적화 끝 --- ▲▲▲ */
 
-        /* ▼▼▼ 모바일 화면을 위한 반응형 스타일 추가 ▼▼▼ */
+        /* 모바일 화면을 위한 반응형 스타일 */
         @media (max-width: 768px) {
             #container {
                 flex-direction: column;
@@ -132,9 +128,9 @@
             var customOverlay = new kakao.maps.CustomOverlay({});
             var infowindow = new kakao.maps.InfoWindow({ removable: true });
 
-            // 현재 선택/활성화된 폴리곤과 목록 아이템을 추적하기 위한 변수
-            let activePolygon = null;
-            let activeListItem = null;
+            // 현재 '클릭하여 선택된' 폴리곤과 목록 아이템을 추적하기 위한 변수
+            let selectedPolygon = null;
+            let selectedListItem = null;
 
             // --- 함수 정의 ---
             async function loadKmlData() {
@@ -201,63 +197,68 @@
                 listItem.textContent = area.name;
                 listContainer.appendChild(listItem);
 
-                // 하이라이트 효과를 적용하는 함수
-                function highlight() {
-                    if (activePolygon && activePolygon !== polygon) {
-                        activePolygon.setOptions({ fillColor: '#fff' });
-                        activeListItem.classList.remove('active');
+                // 아이템을 선택(클릭)했을 때의 동작을 정의하는 함수
+                function selectItem() {
+                    // 이전에 선택된 항목이 있다면 원래 상태로 되돌립니다.
+                    if (selectedPolygon) {
+                        selectedPolygon.setOptions({ fillColor: '#fff' });
+                        selectedListItem.classList.remove('active');
                     }
+                    // 새로 선택된 항목을 하이라이트하고 변수에 저장합니다.
                     polygon.setOptions({ fillColor: '#09f' });
                     listItem.classList.add('active');
-                    activePolygon = polygon;
-                    activeListItem = listItem;
-                }
-
-                // 하이라이트 효과를 제거하는 함수
-                function unhighlight() {
-                    polygon.setOptions({ fillColor: '#fff' });
-                    listItem.classList.remove('active');
+                    selectedPolygon = polygon;
+                    selectedListItem = listItem;
                 }
 
                 // 폴리곤 이벤트
-                kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                    highlight();
+                kakao.maps.event.addListener(polygon, 'mouseover', function() {
+                    // 선택된 상태가 아닐 때만 mouseover 효과를 적용합니다.
+                    if (polygon !== selectedPolygon) {
+                        polygon.setOptions({ fillColor: '#09f' });
+                        listItem.classList.add('active');
+                    }
                     customOverlay.setContent('<div class="area">' + area.name + '</div>');
-                    customOverlay.setPosition(mouseEvent.latLng); 
+                    customOverlay.setPosition(getPolygonCenter(area.path));
                     customOverlay.setMap(map);
                 });
+
                 kakao.maps.event.addListener(polygon, 'mouseout', function() {
-                    unhighlight();
+                    // 선택된 상태가 아닐 때만 mouseout 효과를 적용합니다.
+                    if (polygon !== selectedPolygon) {
+                        polygon.setOptions({ fillColor: '#fff' });
+                        listItem.classList.remove('active');
+                    }
                     customOverlay.setMap(null);
                 });
+
                 kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
-                    highlight(); // 모바일 클릭 시 하이라이트 적용
+                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 만듭니다.
                     displayInfoWindow(area, mouseEvent.latLng, infowindow, map);
                 });
 
                 // 목록 아이템(li) 이벤트
                 listItem.addEventListener('mouseover', () => {
-                    highlight();
-                    customOverlay.setContent('<div class="area">' + area.name + '</div>');
-                    customOverlay.setPosition(getPolygonCenter(area.path));
-                    customOverlay.setMap(map);
+                    if (polygon !== selectedPolygon) {
+                        polygon.setOptions({ fillColor: '#09f' });
+                    }
                 });
+
                 listItem.addEventListener('mouseout', () => {
-                    unhighlight();
-                    customOverlay.setMap(null);
+                    if (polygon !== selectedPolygon) {
+                        polygon.setOptions({ fillColor: '#fff' });
+                    }
                 });
                 
                 listItem.addEventListener('click', () => {
-                    const bounds = new kakao.maps.LatLngBounds();
-                    area.path.forEach(point => {
-                        bounds.extend(point);
-                    });
-                    map.setBounds(bounds);
-                    setTimeout(() => {
-                        map.setLevel(5); // 확대 레벨 5로 수정
-                    }, 300);
-                    displayInfoWindow(area, bounds.getCenter(), infowindow, map);
-                    highlight(); // 목록 클릭 시에도 하이라이트 적용
+                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 만듭니다.
+                    const center = getPolygonCenter(area.path);
+                    
+                    // 확대 레벨을 먼저 설정하고, 그 다음 중심으로 이동합니다.
+                    map.setLevel(5);
+                    map.setCenter(center); 
+                    
+                    displayInfoWindow(area, center, infowindow, map);
                 });
             }
             
