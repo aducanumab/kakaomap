@@ -10,18 +10,11 @@
             margin: 0;
             padding: 0;
         }
-        /* 인포윈도우 팝업 내부의 기본 여백을 제거합니다. */
+        /* 인포윈도우 팝업 내부의 기본 여백을 설정합니다. */
         .info-window {
             padding: 5px;
             font-size: 14px;
             font-weight: bold;
-        }
-        .info-window a {
-            text-decoration: none;
-            color: #1a73e8;
-        }
-        .info-window a:hover {
-            text-decoration: underline;
         }
     </style>
 </head>
@@ -44,7 +37,7 @@
             const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
 
             try {
-                // 1단계: 네트워크 링크 KML 로딩 및 최종 KML 주소 추출
+                // KML 로딩 및 파싱 (이전과 동일)
                 const initialResponse = await fetch(initialKmlUrl);
                 if (!initialResponse.ok) throw new Error('초기 KML 로딩 실패');
                 const initialKmlText = await initialResponse.text();
@@ -55,13 +48,11 @@
                 if (!hrefElem) throw new Error('KML에서 NetworkLink href를 찾을 수 없습니다.');
                 const finalKmlUrl = hrefElem.textContent;
 
-                // 2단계: 최종 KML 파일 로딩
                 const finalResponse = await fetch(finalKmlUrl);
                 if (!finalResponse.ok) throw new Error('최종 KML 로딩 실패');
                 const finalKmlText = await finalResponse.text();
                 const finalKmlDoc = parser.parseFromString(finalKmlText, "application/xml");
 
-                // 3단계: 스타일 파싱
                 const styles = {};
                 const styleMaps = {};
                 const styleMapElements = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'StyleMap');
@@ -102,7 +93,6 @@
                     }
                 }
 
-                // 4단계: Placemark 순회, 폴리곤 생성 및 이벤트 추가
                 const placemarks = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Placemark');
                 const infowindow = new kakao.maps.InfoWindow({ removable: true });
 
@@ -133,28 +123,30 @@
                     const polygon = new kakao.maps.Polygon(polygonOptions);
                     polygon.setMap(map);
 
-                    // --- ▼▼▼ 이벤트 리스너 추가 ▼▼▼ ---
+                    // --- ▼▼▼ 이벤트 리스너 수정 ▼▼▼ ---
+                    
+                    // 마우스오버 시 이름 팝업 표시
                     kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                        // description에서 URL 추출
-                        const urlMatch = description.match(/https?:\/\/[^\s<]+/);
-                        let content;
-
-                        if (urlMatch && urlMatch[0]) {
-                            // URL이 있으면 a 태그로 감싼 링크 생성
-                            content = `<div class="info-window"><a href="${urlMatch[0]}" target="_blank">${name}</a></div>`;
-                        } else {
-                            // URL이 없으면 이름만 표시
-                            content = `<div class="info-window">${name}</div>`;
-                        }
-                        
+                        const content = `<div class="info-window">${name}</div>`;
                         infowindow.setContent(content);
                         infowindow.setPosition(mouseEvent.latLng);
                         infowindow.open(map);
                     });
 
+                    // 마우스아웃 시 팝업 닫기
                     kakao.maps.event.addListener(polygon, 'mouseout', function() {
                         infowindow.close();
                     });
+
+                    // 클릭 시 URL로 이동
+                    const urlMatch = description.match(/https?:\/\/[^\s<]+/);
+                    if (urlMatch && urlMatch[0]) {
+                        kakao.maps.event.addListener(polygon, 'click', function() {
+                            // 새 탭에서 링크 열기: window.open(urlMatch[0]);
+                            // 현재 탭에서 이동하기:
+                            window.location.href = urlMatch[0];
+                        });
+                    }
                     // --- ▲▲▲ 이벤트 리스너 끝 ▲▲▲ ---
                 }
             } catch (error) {
