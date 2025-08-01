@@ -197,9 +197,9 @@
                 listItem.textContent = area.name;
                 listContainer.appendChild(listItem);
 
-                // 아이템을 선택(클릭)했을 때의 동작을 정의하는 함수
+                // 아이템을 '선택'하는 동작을 처리하는 함수
                 function selectItem() {
-                    // 이전에 선택된 항목이 있다면 원래 상태로 되돌립니다.
+                    // 이전에 선택된 항목이 있으면 원래 상태로 되돌립니다.
                     if (selectedPolygon) {
                         selectedPolygon.setOptions({ fillColor: '#fff' });
                         selectedListItem.classList.remove('active');
@@ -212,19 +212,19 @@
                 }
 
                 // 폴리곤 이벤트
-                kakao.maps.event.addListener(polygon, 'mouseover', function() {
-                    // 선택된 상태가 아닐 때만 mouseover 효과를 적용합니다.
+                kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
+                    // 선택된 상태가 아닐 때만 임시 하이라이트를 적용합니다.
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#09f' });
                         listItem.classList.add('active');
                     }
                     customOverlay.setContent('<div class="area">' + area.name + '</div>');
-                    customOverlay.setPosition(getPolygonCenter(area.path));
+                    customOverlay.setPosition(mouseEvent.latLng); 
                     customOverlay.setMap(map);
                 });
 
                 kakao.maps.event.addListener(polygon, 'mouseout', function() {
-                    // 선택된 상태가 아닐 때만 mouseout 효과를 적용합니다.
+                    // 선택된 상태가 아닐 때만 임시 하이라이트를 제거합니다.
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#fff' });
                         listItem.classList.remove('active');
@@ -233,7 +233,7 @@
                 });
 
                 kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
-                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 만듭니다.
+                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 고정합니다.
                     displayInfoWindow(area, mouseEvent.latLng, infowindow, map);
                 });
 
@@ -242,23 +242,37 @@
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#09f' });
                     }
+                    customOverlay.setContent('<div class="area">' + area.name + '</div>');
+                    customOverlay.setPosition(getPolygonCenter(area.path));
+                    customOverlay.setMap(map);
                 });
 
                 listItem.addEventListener('mouseout', () => {
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#fff' });
                     }
+                    customOverlay.setMap(null);
                 });
                 
                 listItem.addEventListener('click', () => {
-                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 만듭니다.
-                    const center = getPolygonCenter(area.path);
+                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 고정합니다.
                     
-                    // 확대 레벨을 먼저 설정하고, 그 다음 중심으로 이동합니다.
-                    map.setLevel(5);
-                    map.setCenter(center); 
+                    // 폴리곤의 경계에 맞춰 지도 뷰를 조정합니다.
+                    const bounds = new kakao.maps.LatLngBounds();
+                    area.path.forEach(point => {
+                        bounds.extend(point);
+                    });
+                    map.setBounds(bounds);
+
+                    // 지도 이동이 끝난 후, 확대 레벨을 5로 설정합니다.
+                    setTimeout(() => {
+                        // 현재 확대 레벨이 5보다 더 확대된 상태(숫자가 작음)가 아니라면 레벨을 5로 설정합니다.
+                        if (map.getLevel() > 5) {
+                            map.setLevel(5);
+                        }
+                    }, 400); // 애니메이션 시간을 고려하여 0.4초 딜레이
                     
-                    displayInfoWindow(area, center, infowindow, map);
+                    displayInfoWindow(area, bounds.getCenter(), infowindow, map);
                 });
             }
             
