@@ -94,6 +94,18 @@
                 height: 40%;
                 border-right: none;
                 border-bottom: 1px solid #dee2e6;
+                position: relative; /* 스크롤 인디케이터를 위한 설정 */
+            }
+            /* ▼▼▼ 모바일 스크롤 인디케이터 추가 ▼▼▼ */
+            #sidebar::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 30px;
+                background: linear-gradient(to top, rgba(248, 249, 250, 1) 20%, rgba(248, 249, 250, 0));
+                pointer-events: none; /* 인디케이터가 스크롤을 방해하지 않도록 설정 */
             }
             #map {
                 height: 60%;
@@ -104,7 +116,7 @@
 <body>
     <div id="container">
         <div id="sidebar">
-            <h2>상권 목록</h2>
+            <h2>지역 목록</h2>
             <div id="polygon-list-container">
                 <!-- KML 데이터가 그룹별로 이곳에 동적으로 추가됩니다. -->
             </div>
