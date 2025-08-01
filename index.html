@@ -8,6 +8,8 @@
         .area { position: absolute; background: #fff; border: 1px solid #888; border-radius: 3px; font-size: 12px; top: -5px; left: 15px; padding:2px; }
         .info { font-size: 12px; padding: 5px; }
         .info .title { font-weight: bold; }
+        .info a { color: #1a73e8; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -15,113 +17,122 @@
 
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5bc8237fbd068b286a064706ed55a6dd&libraries=drawing&autoload=false"></script>
     <script>
-        // 지도에 폴리곤으로 표시할 영역데이터 배열입니다. KML 파싱 후 이곳에 채워집니다.
         var areas = [];
         
         kakao.maps.load(async function() {
             var mapContainer = document.getElementById('map'),
                 mapOption = {
-                    center: new kakao.maps.LatLng(37.566826, 126.9786567), // 지도의 중심좌표
-                    level: 9 // 지도의 확대 레벨
+                    center: new kakao.maps.LatLng(37.566826, 126.9786567),
+                    level: 9
                 };
 
             var map = new kakao.maps.Map(mapContainer, mapOption);
             var customOverlay = new kakao.maps.CustomOverlay({});
             var infowindow = new kakao.maps.InfoWindow({ removable: true });
 
-            // KML을 불러와 areas 배열을 채우는 비동기 함수
-            async function loadKmlData() {
-                const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
-                try {
-                    const initialResponse = await fetch(initialKmlUrl);
-                    if (!initialResponse.ok) throw new Error('초기 KML 로딩 실패');
-                    const initialKmlText = await initialResponse.text();
-                    const parser = new DOMParser();
-                    const initialKmlDoc = parser.parseFromString(initialKmlText, "application/xml");
-                    const kmlNs = 'http://www.opengis.net/kml/2.2';
-                    const hrefElem = initialKmlDoc.getElementsByTagNameNS(kmlNs, 'href')[0];
-                    if (!hrefElem) throw new Error('KML에서 NetworkLink href를 찾을 수 없습니다.');
-                    const finalKmlUrl = hrefElem.textContent;
-                    const finalResponse = await fetch(finalKmlUrl);
-                    if (!finalResponse.ok) throw new Error('최종 KML 로딩 실패');
-                    const finalKmlText = await finalResponse.text();
-                    const finalKmlDoc = parser.parseFromString(finalKmlText, "application/xml");
-                    
-                    const placemarks = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Placemark');
-                    for (let i = 0; i < placemarks.length; i++) {
-                        const placemark = placemarks[i];
-                        const name = placemark.getElementsByTagNameNS(kmlNs, 'name')[0]?.textContent || '';
-                        const coordinatesElem = placemark.getElementsByTagNameNS(kmlNs, 'coordinates')[0];
-                        if (!coordinatesElem) continue;
-
-                        const coordinatesStr = coordinatesElem.textContent.trim();
-                        const path = coordinatesStr.split(/\s+/).map(coordStr => {
-                            const [lng, lat] = coordStr.split(',');
-                            if (!isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-                                return new kakao.maps.LatLng(lat, lng);
-                            }
-                        }).filter(p => p);
-
-                        if (path.length > 0) {
-                            areas.push({
-                                name: name,
-                                path: path
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error("KML 처리 중 오류 발생:", error);
-                    alert("지도 데이터를 불러오는 데 실패했습니다.");
-                }
-            }
-
-            // KML 데이터를 불러와 areas 배열을 채운 후, 폴리곤을 그립니다.
             await loadKmlData();
 
-            // 지도에 영역데이터를 폴리곤으로 표시합니다
             for (var i = 0, len = areas.length; i < len; i++) {
-                displayArea(areas[i]);
-            }
-
-            // 다각형을 생성하고 이벤트를 등록하는 함수입니다
-            function displayArea(area) {
-                var polygon = new kakao.maps.Polygon({
-                    map: map,
-                    path: area.path,
-                    strokeWeight: 2,
-                    strokeColor: '#004c80',
-                    strokeOpacity: 0.8,
-                    fillColor: '#fff',
-                    fillOpacity: 0.7
-                });
-
-                kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                    polygon.setOptions({ fillColor: '#09f' });
-                    customOverlay.setContent('<div class="area">' + area.name + '</div>');
-                    customOverlay.setPosition(mouseEvent.latLng);
-                    customOverlay.setMap(map);
-                });
-
-                kakao.maps.event.addListener(polygon, 'mousemove', function(mouseEvent) {
-                    customOverlay.setPosition(mouseEvent.latLng);
-                });
-
-                kakao.maps.event.addListener(polygon, 'mouseout', function() {
-                    polygon.setOptions({ fillColor: '#fff' });
-                    customOverlay.setMap(null);
-                });
-
-                kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
-                    var content = '<div class="info">' +
-                        '   <div class="title">' + area.name + '</div>' +
-                        '   <div class="size">총 면적 : 약 ' + Math.floor(polygon.getArea()) + ' m<sup>2</sup></div>' +
-                        '</div>';
-                    infowindow.setContent(content);
-                    infowindow.setPosition(mouseEvent.latLng);
-                    infowindow.setMap(map);
-                });
+                displayArea(areas[i], map, customOverlay, infowindow);
             }
         });
+
+        async function loadKmlData() {
+            const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
+            try {
+                const initialResponse = await fetch(initialKmlUrl);
+                if (!initialResponse.ok) throw new Error('초기 KML 로딩 실패');
+                const initialKmlText = await initialResponse.text();
+                const parser = new DOMParser();
+                const initialKmlDoc = parser.parseFromString(initialKmlText, "application/xml");
+                const kmlNs = 'http://www.opengis.net/kml/2.2';
+                const hrefElem = initialKmlDoc.getElementsByTagNameNS(kmlNs, 'href')[0];
+                if (!hrefElem) throw new Error('KML에서 NetworkLink href를 찾을 수 없습니다.');
+                const finalKmlUrl = hrefElem.textContent;
+                const finalResponse = await fetch(finalKmlUrl);
+                if (!finalResponse.ok) throw new Error('최종 KML 로딩 실패');
+                const finalKmlText = await finalResponse.text();
+                const finalKmlDoc = parser.parseFromString(finalKmlText, "application/xml");
+                
+                const placemarks = finalKmlDoc.getElementsByTagNameNS(kmlNs, 'Placemark');
+                for (let i = 0; i < placemarks.length; i++) {
+                    const placemark = placemarks[i];
+                    const name = placemark.getElementsByTagNameNS(kmlNs, 'name')[0]?.textContent || '';
+                    const description = placemark.getElementsByTagNameNS(kmlNs, 'description')[0]?.textContent || '';
+                    const coordinatesElem = placemark.getElementsByTagNameNS(kmlNs, 'coordinates')[0];
+                    if (!coordinatesElem) continue;
+
+                    const coordinatesStr = coordinatesElem.textContent.trim();
+                    const path = coordinatesStr.split(/\s+/).map(coordStr => {
+                        const [lng, lat] = coordStr.split(',');
+                        if (!isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                            return new kakao.maps.LatLng(lat, lng);
+                        }
+                    }).filter(p => p);
+
+                    if (path.length > 0) {
+                        areas.push({
+                            name: name,
+                            path: path,
+                            description: description
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("KML 처리 중 오류 발생:", error);
+                alert("지도 데이터를 불러오는 데 실패했습니다.");
+            }
+        }
+        
+        function displayArea(area, map, customOverlay, infowindow) {
+            var polygon = new kakao.maps.Polygon({
+                map: map,
+                path: area.path,
+                strokeWeight: 2,
+                strokeColor: '#004c80',
+                strokeOpacity: 0.8,
+                fillColor: '#fff',
+                fillOpacity: 0.7
+            });
+
+            kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
+                polygon.setOptions({ fillColor: '#09f' });
+                customOverlay.setContent('<div class="area">' + area.name + '</div>');
+                customOverlay.setPosition(mouseEvent.latLng);
+                customOverlay.setMap(map);
+            });
+
+            kakao.maps.event.addListener(polygon, 'mousemove', function(mouseEvent) {
+                customOverlay.setPosition(mouseEvent.latLng);
+            });
+
+            kakao.maps.event.addListener(polygon, 'mouseout', function() {
+                polygon.setOptions({ fillColor: '#fff' });
+                customOverlay.setMap(null);
+            });
+
+            // --- ▼▼▼ 클릭 이벤트 수정 ▼▼▼ ---
+            kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
+                // description 내용에서 URL을 찾습니다.
+                const urlMatch = area.description.match(/https?:\/\/[^\s<]+/);
+                
+                // 정보창 내용(content)을 구성합니다.
+                let content = '<div class="info">' +
+                              '   <div class="title">' + area.name + '</div>';
+                
+                // URL이 있는 경우에만 '임장기 보러가기' 링크를 추가합니다.
+                if (urlMatch && urlMatch[0]) {
+                    content += '   <div><a href="' + urlMatch[0] + '" target="_blank">임장기 보러가기</a></div>';
+                }
+
+                content += '</div>';
+
+                infowindow.setContent(content);
+                infowindow.setPosition(mouseEvent.latLng);
+                infowindow.setMap(map);
+            });
+            // --- ▲▲▲ 수정 끝 ▲▲▲ ---
+        }
     </script>
 </body>
 </html>
