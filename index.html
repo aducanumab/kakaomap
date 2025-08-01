@@ -207,7 +207,12 @@
             });
             listItem.addEventListener('click', () => {
                 const center = getPolygonCenter(area.path);
-                map.panTo(center);
+                map.panTo(center); // 지도를 폴리곤 중심으로 부드럽게 이동
+                
+                // --- ↓↓↓ 이 부분을 추가하세요 ↓↓↓ ---
+                map.setLevel(3);   // 지도의 확대 레벨을 3으로 설정
+                // --- ↑↑↑ 여기까지 추가 --- ↑↑↑
+            
                 displayInfoWindow(area, center, infowindow, map);
             });
         }
