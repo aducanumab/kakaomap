@@ -26,6 +26,7 @@
             border-bottom: 1px solid #dee2e6;
             position: sticky;
             top: 0;
+            z-index: 10;
         }
         .layer-group h3 {
             padding: 10px 15px;
@@ -33,11 +34,29 @@
             font-size: 14px;
             background-color: #f1f3f5;
             border-bottom: 1px solid #dee2e6;
+            cursor: pointer; /* 클릭 가능하도록 커서 변경 */
+            position: relative;
+            user-select: none; /* 텍스트 선택 방지 */
         }
-        #polygon-list, .layer-list {
+        /* ▼▼▼ 아코디언 메뉴 아이콘 추가 ▼▼▼ */
+        .layer-group h3::after {
+            content: '▶';
+            position: absolute;
+            right: 15px;
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .layer-group.open h3::after {
+            transform: rotate(90deg);
+        }
+        .layer-list {
             list-style-type: none;
             margin: 0;
             padding: 0;
+            display: none; /* 기본적으로 목록을 숨김 */
+        }
+        .layer-group.open .layer-list {
+            display: block; /* open 클래스가 있을 때만 목록을 표시 */
         }
         .layer-list li {
             padding: 12px 15px;
@@ -94,7 +113,6 @@
                 height: 40%;
                 border-right: none;
                 border-bottom: 1px solid #dee2e6;
-                /* ▼▼▼ 스크롤 인디케이터 수정: 마스크 이미지 사용 ▼▼▼ */
                 -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
                 mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
             }
@@ -131,11 +149,9 @@
             var customOverlay = new kakao.maps.CustomOverlay({});
             var infowindow = new kakao.maps.InfoWindow({ removable: true });
 
-            // 현재 '클릭하여 선택된' 폴리곤과 목록 아이템을 추적하기 위한 변수
             let selectedPolygon = null;
             let selectedListItem = null;
 
-            // --- 함수 정의 ---
             async function loadKmlData() {
                 const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
                 try {
@@ -200,23 +216,18 @@
                 listItem.textContent = area.name;
                 listContainer.appendChild(listItem);
 
-                // 아이템을 '선택'하는 동작을 처리하는 함수
                 function selectItem() {
-                    // 이전에 선택된 항목이 있으면 원래 상태로 되돌립니다.
                     if (selectedPolygon) {
                         selectedPolygon.setOptions({ fillColor: '#fff' });
                         selectedListItem.classList.remove('active');
                     }
-                    // 새로 선택된 항목을 하이라이트하고 변수에 저장합니다.
                     polygon.setOptions({ fillColor: '#09f' });
                     listItem.classList.add('active');
                     selectedPolygon = polygon;
                     selectedListItem = listItem;
                 }
 
-                // 폴리곤 이벤트
                 kakao.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                    // 선택된 상태가 아닐 때만 임시 하이라이트를 적용합니다.
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#09f' });
                         listItem.classList.add('active');
@@ -227,7 +238,6 @@
                 });
 
                 kakao.maps.event.addListener(polygon, 'mouseout', function() {
-                    // 선택된 상태가 아닐 때만 임시 하이라이트를 제거합니다.
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#fff' });
                         listItem.classList.remove('active');
@@ -236,11 +246,10 @@
                 });
 
                 kakao.maps.event.addListener(polygon, 'click', function(mouseEvent) {
-                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 고정합니다.
+                    selectItem();
                     displayInfoWindow(area, mouseEvent.latLng, infowindow, map);
                 });
 
-                // 목록 아이템(li) 이벤트
                 listItem.addEventListener('mouseover', () => {
                     if (polygon !== selectedPolygon) {
                         polygon.setOptions({ fillColor: '#09f' });
@@ -258,23 +267,17 @@
                 });
                 
                 listItem.addEventListener('click', () => {
-                    selectItem(); // 클릭 시 항목을 '선택된' 상태로 고정합니다.
-                    
-                    // 폴리곤의 경계에 맞춰 지도 뷰를 조정합니다.
+                    selectItem();
                     const bounds = new kakao.maps.LatLngBounds();
                     area.path.forEach(point => {
                         bounds.extend(point);
                     });
                     map.setBounds(bounds);
-
-                    // 지도 이동이 끝난 후, 확대 레벨을 5로 설정합니다.
                     setTimeout(() => {
-                        // 현재 확대 레벨이 5보다 더 확대된 상태(숫자가 작음)가 아니라면 레벨을 5로 설정합니다.
                         if (map.getLevel() > 5) {
                             map.setLevel(5);
                         }
-                    }, 400); // 애니메이션 시간을 고려하여 0.4초 딜레이
-                    
+                    }, 400);
                     displayInfoWindow(area, bounds.getCenter(), infowindow, map);
                 });
             }
@@ -298,7 +301,6 @@
                 return bounds.getCenter();
             }
 
-            // --- 메인 로직 실행 ---
             await loadKmlData();
 
             var listContainer = document.getElementById('polygon-list-container');
@@ -313,6 +315,12 @@
                 groupList.className = 'layer-list';
                 groupDiv.appendChild(groupList);
                 listContainer.appendChild(groupDiv);
+
+                // --- ▼▼▼ 아코디언 메뉴 이벤트 추가 ▼▼▼ ---
+                groupTitle.addEventListener('click', () => {
+                    groupDiv.classList.toggle('open');
+                });
+                // --- ▲▲▲ 이벤트 추가 끝 ▲▲▲ ---
 
                 groupedAreas[layerName].forEach(area => {
                     displayArea(area, map, customOverlay, infowindow, groupList);
