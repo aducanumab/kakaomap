@@ -3,12 +3,21 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kakao Map with Grouped Polygon List</title>
+    <title>아두카의 임장여지도</title>
     <style>
-        /* 기본 레이아웃 */
-        html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; }
+        /* 기본 레이아웃 및 폰트 설정 */
+        html, body { 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Malgun Gothic', sans-serif; 
+        }
         #container { display: flex; height: 100%; }
-        #map { flex-grow: 1; height: 100%; }
+        #map { 
+            flex-grow: 1; 
+            height: 100%; 
+            position: relative; /* 자식 요소의 위치 기준점 */
+        }
         
         /* 사이드바 스타일 */
         #sidebar {
@@ -34,11 +43,10 @@
             font-size: 14px;
             background-color: #f1f3f5;
             border-bottom: 1px solid #dee2e6;
-            cursor: pointer; /* 클릭 가능하도록 커서 변경 */
+            cursor: pointer;
             position: relative;
-            user-select: none; /* 텍스트 선택 방지 */
+            user-select: none;
         }
-        /* ▼▼▼ 아코디언 메뉴 아이콘 추가 ▼▼▼ */
         .layer-group h3::after {
             content: '▶';
             position: absolute;
@@ -53,10 +61,10 @@
             list-style-type: none;
             margin: 0;
             padding: 0;
-            display: none; /* 기본적으로 목록을 숨김 */
+            display: none;
         }
         .layer-group.open .layer-list {
-            display: block; /* open 클래스가 있을 때만 목록을 표시 */
+            display: block;
         }
         .layer-list li {
             padding: 12px 15px;
@@ -71,36 +79,39 @@
 
         /* 카카오맵 팝업창 스타일 */
         .area { 
-            position: absolute; 
-            background: #fff; 
-            border: 1px solid #888; 
-            border-radius: 3px; 
-            font-size: 12px; 
-            top: -5px; 
-            left: 15px; 
-            padding: 4px 6px;
+            position: absolute; background: #fff; border: 1px solid #888; border-radius: 3px; 
+            font-size: 12px; top: -5px; left: 15px; padding: 4px 6px;
         }
         .info { 
-            font-size: 12px; 
-            padding: 10px 12px;
-            line-height: 1.5;
-            max-width: 220px;
-            word-wrap: break-word;
+            font-size: 12px; padding: 10px 12px; line-height: 1.5;
+            max-width: 220px; word-wrap: break-word;
         }
-        .info .title { 
-            font-size: 15px; 
-            font-weight: bold; 
-            margin-bottom: 5px;
+        .info .title { font-size: 15px; font-weight: bold; margin-bottom: 5px; }
+        .info .link { font-size: 14px; }
+        .info a { color: #1a73e8; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        /* ▼▼▼ 지도 위 제목 및 저작권 문구 스타일 (PC) ▼▼▼ */
+        #map-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            color: black;
+            font-size: 20px;
+            font-weight: bold;
+            pointer-events: none; /* 제목 뒤로 지도 조작 가능하도록 설정 */
         }
-        .info .link { 
-            font-size: 14px; 
-        }
-        .info a { 
-            color: #1a73e8; 
-            text-decoration: none; 
-        }
-        .info a:hover { 
-            text-decoration: underline; 
+        #copyright {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 10;
+            color: black;
+            font-size: 14px;
+            font-weight: bold;
+            pointer-events: none;
         }
 
         /* 모바일 화면을 위한 반응형 스타일 */
@@ -119,23 +130,46 @@
             #map {
                 height: 60%;
             }
+            /* ▼▼▼ 모바일용 스타일 수정 ▼▼▼ */
+            #map-title {
+                display: none; /* PC용 지도 제목 숨기기 */
+            }
+            #copyright {
+                right: 50%; /* 중앙 정렬 */
+                transform: translateX(50%);
+                font-size: 10px; /* 폰트 크기 변경 */
+            }
         }
     </style>
 </head>
 <body>
     <div id="container">
         <div id="sidebar">
-            <h2>지역 목록</h2>
-            <div id="polygon-list-container">
-                <!-- KML 데이터가 그룹별로 이곳에 동적으로 추가됩니다. -->
-            </div>
+            <h2 id="sidebar-title">아두카의 임장여지도</h2>
         </div>
-        <div id="map"></div>
+        <div id="map">
+            <div id="map-title">아두카의 임장여지도</div>
+            <div id="copyright">All rights reserved</div>
+        </div>
     </div>
 
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5bc8237fbd068b286a064706ed55a6dd&libraries=drawing&autoload=false"></script>
     <script>
-        
+        // --- ▼▼▼ 모바일 제목 수정을 위한 코드 추가 ▼▼▼ ---
+        // 화면 크기에 따라 사이드바 제목을 동적으로 변경합니다.
+        function adjustTitle() {
+            const sidebarTitle = document.getElementById('sidebar-title');
+            if (window.innerWidth <= 768) {
+                sidebarTitle.textContent = '아두카의 임장여지도';
+            } else {
+                sidebarTitle.textContent = '지역 목록';
+            }
+        }
+        // 페이지 로드 시 및 창 크기 변경 시 함수 실행
+        window.addEventListener('load', adjustTitle);
+        window.addEventListener('resize', adjustTitle);
+        // --- ▲▲▲ 코드 추가 끝 --- ▲▲▲
+
         kakao.maps.load(async function() {
             var groupedAreas = {}; 
             
@@ -153,7 +187,7 @@
             let selectedListItem = null;
 
             async function loadKmlData() {
-                const initialKmlUrl = 'https://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
+                const initialKmlUrl = 'httpshttps://raw.githubusercontent.com/aducanumab/kakaomap/refs/heads/main/map_data.kml';
                 try {
                     const initialResponse = await fetch(initialKmlUrl);
                     if (!initialResponse.ok) throw new Error('초기 KML 로딩 실패');
@@ -316,11 +350,9 @@
                 groupDiv.appendChild(groupList);
                 listContainer.appendChild(groupDiv);
 
-                // --- ▼▼▼ 아코디언 메뉴 이벤트 추가 ▼▼▼ ---
                 groupTitle.addEventListener('click', () => {
                     groupDiv.classList.toggle('open');
                 });
-                // --- ▲▲▲ 이벤트 추가 끝 ▲▲▲ ---
 
                 groupedAreas[layerName].forEach(area => {
                     displayArea(area, map, customOverlay, infowindow, groupList);
