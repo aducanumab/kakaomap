@@ -341,7 +341,8 @@
                 let content = '<div class="info">' +
                               '   <div class="title">' + area.name + '</div>';
                 if (urlMatch && urlMatch[0]) {
-                    content += '   <div class="link"><a href="' + urlMatch[0] + '" target="_blank">임장기 보러가기</a></div>';
+                    // target="_blank" 속성을 제거했습니다.
+                    content += '   <div class="link"><a href="' + urlMatch[0] + '">임장기 보러가기</a></div>';
                 }
                 content += '</div>';
                 infowindow.setContent(content);
