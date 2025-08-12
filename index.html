@@ -390,9 +390,18 @@
                 groupDiv.appendChild(groupList);
                 listContainer.appendChild(groupDiv);
 
+                // --- ▼▼▼ 수정된 부분 ▼▼▼ ---
                 groupTitle.addEventListener('click', () => {
+                    const wasOpen = groupDiv.classList.contains('open');
                     groupDiv.classList.toggle('open');
+            
+                    // 그룹이 닫혀 있다가 열렸을 때만 스크롤
+                    if (!wasOpen) {
+                        // 부드러운 스크롤 효과
+                        groupTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
                 });
+                // --- ▲▲▲ 수정된 부분 끝 --- ▲▲▲
 
                 groupedAreas[layerName].forEach(area => {
                     displayArea(area, map, customOverlay, infowindow, groupList);
