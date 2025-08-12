@@ -390,18 +390,29 @@
                 groupDiv.appendChild(groupList);
                 listContainer.appendChild(groupDiv);
 
-                // --- ▼▼▼ 수정된 부분 ▼▼▼ ---
+                // --- ▼▼▼ 수정 후 클릭 이벤트 ▼▼▼ ---
                 groupTitle.addEventListener('click', () => {
                     const wasOpen = groupDiv.classList.contains('open');
                     groupDiv.classList.toggle('open');
-            
-                    // 그룹이 닫혀 있다가 열렸을 때만 스크롤
+                
+                    // 그룹이 닫혀 있다가 열렸을 때만 스크롤되도록 함
                     if (!wasOpen) {
-                        // 부드러운 스크롤 효과
-                        groupTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        const sidebar = document.getElementById('sidebar');
+                        const header = document.getElementById('sidebar-title');
+                        
+                        // 클릭된 제목(h3)의 사이드바 내에서의 상대적 위치를 계산
+                        const titleTop = groupTitle.offsetTop;
+                        // 고정된 헤더(h2)의 높이를 계산
+                        const headerHeight = header.offsetHeight;
+                        
+                        // 사이드바를 (제목의 위치 - 헤더의 높이) 만큼 스크롤하여
+                        // 제목이 헤더 바로 아래에 오도록 함
+                        sidebar.scrollTo({
+                            top: titleTop - headerHeight,
+                            behavior: 'smooth'
+                        });
                     }
                 });
-                // --- ▲▲▲ 수정된 부분 끝 --- ▲▲▲
 
                 groupedAreas[layerName].forEach(area => {
                     displayArea(area, map, customOverlay, infowindow, groupList);
