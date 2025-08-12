@@ -341,8 +341,15 @@
                 let content = '<div class="info">' +
                               '   <div class="title">' + area.name + '</div>';
                 if (urlMatch && urlMatch[0]) {
-                    // target="_blank" 속성을 제거했습니다.
-                    content += '   <div class="link"><a href="' + urlMatch[0] + '">임장기 보러가기</a></div>';
+                    // --- ▼▼▼ 기기 판별 로직 추가 ▼▼▼ ---
+                    // User Agent 문자열을 확인하여 모바일 기기인지 판별합니다.
+                    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+                    
+                    // isMobile이 true이면 target 속성이 없고, false(PC)이면 target="_blank"가 추가됩니다.
+                    const target = isMobile ? '' : ' target="_blank"';
+                    
+                    content += '   <div class="link"><a href="' + urlMatch[0] + '"' + target + '>임장기 보러가기</a></div>';
+                    // --- ▲▲▲ 로직 추가 끝 ▲▲▲ ---
                 }
                 content += '</div>';
                 infowindow.setContent(content);
