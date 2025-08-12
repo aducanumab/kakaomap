@@ -83,13 +83,26 @@
             font-size: 12px; top: -5px; left: 15px; padding: 4px 6px;
         }
         .info { 
-            font-size: 12px; padding: 10px 12px; line-height: 1.5;
-            max-width: 220px; word-wrap: break-word;
+            font-size: 12px; 
+            padding: 10px 15px; /* 좌우 여백 증가 */
+            line-height: 1.5;
+            white-space: nowrap; /* 내용이 길어져도 줄바꿈 방지 */
         }
-        .info .title { font-size: 15px; font-weight: bold; margin-bottom: 5px; }
-        .info .link { font-size: 14px; }
-        .info a { color: #1a73e8; text-decoration: none; }
-        .info a:hover { text-decoration: underline; }
+        .info .title { 
+            font-size: 20px; /* 폰트 사이즈 20px로 수정 */
+            font-weight: bold; 
+            margin-bottom: 5px; 
+        }
+        .info .link { 
+            font-size: 14px; 
+        }
+        .info a { 
+            color: #1a73e8; 
+            text-decoration: none; 
+        }
+        .info a:hover { 
+            text-decoration: underline; 
+        }
 
         /* 지도 위 제목 및 저작권 문구 스타일 (PC) */
         #map-title {
@@ -145,7 +158,6 @@
     <div id="container">
         <div id="sidebar">
             <h2 id="sidebar-title">아두카의 임장여지도</h2>
-            <!-- ▼▼▼ 오류 수정: 누락되었던 컨테이너 div 추가 ▼▼▼ -->
             <div id="polygon-list-container"></div>
         </div>
         <div id="map">
